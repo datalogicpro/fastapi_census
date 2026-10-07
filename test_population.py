@@ -4,7 +4,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from main import app
-from routes.population import get_places, get_state
+from services.population import get_places, get_state
 
 
 client = TestClient(app)
