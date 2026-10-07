@@ -62,24 +62,29 @@ def test_get_state_not_found(monkeypatch):
     assert get_state("Nowhere") is None
 
 
-def test_get_places_skips_county_match(monkeypatch):
+def test_get_places_exact_match(monkeypatch):
     monkeypatch.setattr(
         "requests.get",
         lambda url, **kwargs: FakeResponse(HAWAII_PLACES)
     )
 
-    result = get_places("15", "Honolulu")
+    result = get_places("15", "Kailua")
 
     assert result == [
         {
-            "place": "East Honolulu CDP, Hawaii",
-            "population": 51360
-        },
-        {
-            "place": "Urban Honolulu CDP, Hawaii",
-            "population": 345482
+            "place": "Kailua CDP (Honolulu County), Hawaii",
+            "population": 39640
         }
     ]
+
+
+def test_get_places_skips_partial_match(monkeypatch):
+    monkeypatch.setattr(
+        "requests.get",
+        lambda url, **kwargs: FakeResponse(HAWAII_PLACES)
+    )
+
+    assert get_places("15", "Honolulu") == []
 
 
 def test_census_http_error(monkeypatch):
@@ -118,11 +123,11 @@ def test_main_city_population(monkeypatch):
         lambda url, **kwargs: responses.pop(0)
     )
 
-    response = client.get("/population/Hawaii/Honolulu")
+    response = client.get("/population/Hawaii/Kailua")
 
     assert response.status_code == 200
     assert response.json()["state"] == "Hawaii"
-    assert len(response.json()["places"]) == 2
+    assert len(response.json()["places"]) == 1
 
 
 def test_main_state_not_found(monkeypatch):
