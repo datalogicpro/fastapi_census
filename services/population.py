@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 
 import requests
 from dotenv import load_dotenv
@@ -18,6 +19,7 @@ GEOCODER_URL = (
 TIMEOUT = 10
 
 
+@lru_cache
 def get_census_rows(geography: str, state_code: str | None = None) -> list[list[str]]:
     params = {
         "get": "NAME,B01003_001E",
