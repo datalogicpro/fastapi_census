@@ -98,6 +98,8 @@ Example: `/population/Hawaii/Kailua-Kona`
 
 Returns `404` with `State not found` or `City not found` when there is no match.
 
+Returns `502` with `External data service error` if the Census, Mapbox, or the Census Geocoder fails or doesn't answer within 10 seconds.
+
 ## Running Tests
 
 ```bash

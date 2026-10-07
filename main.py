@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+import requests
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from routes.population import (
     get_coordinates,
@@ -10,6 +12,14 @@ from routes.population import (
 
 
 app = FastAPI()
+
+
+@app.exception_handler(requests.RequestException)
+def handle_request_error(request: Request, exc: requests.RequestException):
+    return JSONResponse(
+        status_code=502,
+        content={"detail": "External data service error"}
+    )
 
 
 @app.get("/population/{state}")

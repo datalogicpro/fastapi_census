@@ -15,6 +15,8 @@ GEOCODER_URL = (
     "https://geocoding.geo.census.gov/geocoder/geographies/coordinates"
 )
 
+TIMEOUT = 10
+
 
 def get_census_rows(geography, state_code=None):
     params = {
@@ -26,7 +28,7 @@ def get_census_rows(geography, state_code=None):
     if state_code:
         params["in"] = f"state:{state_code}"
 
-    response = requests.get(CENSUS_URL, params=params)
+    response = requests.get(CENSUS_URL, params=params, timeout=TIMEOUT)
     response.raise_for_status()
 
     return response.json()[1:]
@@ -67,7 +69,7 @@ def get_coordinates(city, state):
         "access_token": MAPBOX_TOKEN
     }
 
-    response = requests.get(MAPBOX_URL, params=params)
+    response = requests.get(MAPBOX_URL, params=params, timeout=TIMEOUT)
     response.raise_for_status()
 
     for feature in response.json().get("features", []):
@@ -89,7 +91,7 @@ def get_place_code(longitude, latitude, state_code):
         "format": "json"
     }
 
-    response = requests.get(GEOCODER_URL, params=params)
+    response = requests.get(GEOCODER_URL, params=params, timeout=TIMEOUT)
     response.raise_for_status()
 
     geographies = response.json()["result"]["geographies"]

@@ -231,3 +231,69 @@ def test_main_mapbox_wrong_state_skipped(monkeypatch):
     response = client.get("/population/Hawaii/Kona")
 
     assert response.status_code == 404
+
+
+def test_main_geocoder_finds_no_place(monkeypatch):
+    responses = [
+        FakeResponse(STATES),
+        FakeResponse(HAWAII_PLACES),
+        FakeResponse({
+            "features": [
+                {
+                    "geometry": {"coordinates": [-155.5, 19.5]},
+                    "properties": {
+                        "context": {"region": {"name": "Hawaii"}}
+                    }
+                }
+            ]
+        }),
+        FakeResponse({"result": {"geographies": {}}})
+    ]
+
+    monkeypatch.setattr(
+        "requests.get",
+        lambda url, **kwargs: responses.pop(0)
+    )
+
+    response = client.get("/population/Hawaii/Volcano National Park")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "City not found"}
+
+
+def test_main_census_error_returns_502(monkeypatch):
+    monkeypatch.setattr(
+        "requests.get",
+        lambda url, **kwargs: FakeResponse(status_code=500)
+    )
+
+    response = client.get("/population/Alaska")
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "External data service error"}
+
+
+def test_main_timeout_returns_502(monkeypatch):
+    def fake_get(url, **kwargs):
+        raise requests.Timeout()
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    response = client.get("/population/Alaska")
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "External data service error"}
+
+
+def test_requests_use_timeout(monkeypatch):
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append(kwargs)
+        return FakeResponse(STATES)
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    get_state("Alaska")
+
+    assert calls[0]["timeout"] == 10
