@@ -4,7 +4,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from main import app
-from services.population import get_places, get_state
+from services.population import get_census_rows, get_places, get_state
 
 
 client = TestClient(app)
@@ -36,6 +36,11 @@ class FakeResponse:
             raise requests.HTTPError(
                 f"HTTP {self.status_code}"
             )
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    get_census_rows.cache_clear()
 
 
 def test_get_state_found(monkeypatch):
@@ -302,3 +307,18 @@ def test_requests_use_timeout(monkeypatch):
     get_state("Alaska")
 
     assert calls[0]["timeout"] == 10
+
+
+def test_census_rows_are_cached(monkeypatch):
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append(kwargs)
+        return FakeResponse(STATES)
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    get_state("Alaska")
+    get_state("Hawaii")
+
+    assert len(calls) == 1
