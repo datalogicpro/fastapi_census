@@ -51,8 +51,12 @@ def get_places(state_code: str, city: str) -> list[dict[str, str | int]]:
 
     for name, population, _, _ in get_census_rows("place:*", state_code):
         place_name = name.split(",")[0].split(" (")[0]
+        words = place_name.split()
 
-        if city.lower() in place_name.lower():
+        while words and (words[-1].islower() or words[-1] == "CDP"):
+            words.pop()
+
+        if " ".join(words).lower() == city.lower():
             places.append({
                 "place": name,
                 "population": int(population)
