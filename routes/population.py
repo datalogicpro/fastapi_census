@@ -6,9 +6,8 @@ from services.population import (
     get_place_by_code,
     get_place_code,
     get_places,
-    get_state
+    get_state,
 )
-
 
 router = APIRouter(prefix="/population", tags=["population"])
 
@@ -20,10 +19,7 @@ def state_population(state: str):
     if result is None:
         raise HTTPException(status_code=404, detail="State not found")
 
-    return {
-        "state": result["state"],
-        "population": result["population"]
-    }
+    return {"state": result["state"], "population": result["population"]}
 
 
 @router.get("/{state}/{city}", response_model=CityPopulation)
@@ -36,10 +32,7 @@ def city_population(state: str, city: str):
     places = get_places(state_info["code"], city)
 
     if places:
-        return {
-            "state": state_info["state"],
-            "places": places
-        }
+        return {"state": state_info["state"], "places": places}
 
     coordinates = get_coordinates(city, state_info["state"])
 
@@ -59,7 +52,6 @@ def city_population(state: str, city: str):
         "state": state_info["state"],
         "places": [place],
         "note": (
-            f"The Census has no place named {city}. "
-            f"It lies within {place['place']}."
-        )
+            f"The Census has no place named {city}. It lies within {place['place']}."
+        ),
     }
