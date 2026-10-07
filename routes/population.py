@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
+from schemas.population import CityPopulation, StatePopulation
 from services.population import (
     get_coordinates,
     get_place_by_code,
@@ -12,7 +13,7 @@ from services.population import (
 router = APIRouter(prefix="/population", tags=["population"])
 
 
-@router.get("/{state}")
+@router.get("/{state}", response_model=StatePopulation)
 def state_population(state: str):
     result = get_state(state)
 
@@ -25,7 +26,7 @@ def state_population(state: str):
     }
 
 
-@router.get("/{state}/{city}")
+@router.get("/{state}/{city}", response_model=CityPopulation)
 def city_population(state: str, city: str):
     state_info = get_state(state)
 
