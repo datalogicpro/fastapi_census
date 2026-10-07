@@ -18,7 +18,7 @@ GEOCODER_URL = (
 TIMEOUT = 10
 
 
-def get_census_rows(geography, state_code=None):
+def get_census_rows(geography: str, state_code: str | None = None) -> list[list[str]]:
     params = {
         "get": "NAME,B01003_001E",
         "for": geography,
@@ -34,7 +34,7 @@ def get_census_rows(geography, state_code=None):
     return response.json()[1:]
 
 
-def get_state(state):
+def get_state(state: str) -> dict[str, str | int] | None:
     for name, population, code in get_census_rows("state:*"):
         if name.lower() == state.lower():
             return {
@@ -46,7 +46,7 @@ def get_state(state):
     return None
 
 
-def get_places(state_code, city):
+def get_places(state_code: str, city: str) -> list[dict[str, str | int]]:
     places = []
 
     for name, population, _, _ in get_census_rows("place:*", state_code):
@@ -61,7 +61,7 @@ def get_places(state_code, city):
     return places
 
 
-def get_coordinates(city, state):
+def get_coordinates(city: str, state: str) -> list[float] | None:
     params = {
         "q": f"{city}, {state}",
         "country": "us",
@@ -81,7 +81,7 @@ def get_coordinates(city, state):
     return None
 
 
-def get_place_code(longitude, latitude, state_code):
+def get_place_code(longitude: float, latitude: float, state_code: str) -> str | None:
     params = {
         "x": longitude,
         "y": latitude,
@@ -104,7 +104,7 @@ def get_place_code(longitude, latitude, state_code):
     return None
 
 
-def get_place_by_code(state_code, place_code):
+def get_place_by_code(state_code: str, place_code: str) -> dict[str, str | int]:
     rows = get_census_rows(f"place:{place_code}", state_code)
     name, population, _, _ = rows[0]
 
