@@ -1,25 +1,23 @@
 import pytest
 import requests
-
 from fastapi.testclient import TestClient
 
 from main import app
 from services.population import get_census_rows, get_places, get_state
-
 
 client = TestClient(app)
 
 STATES = [
     ["NAME", "B01003_001E", "state"],
     ["Alaska", "735706", "02"],
-    ["Hawaii", "1440000", "15"]
+    ["Hawaii", "1440000", "15"],
 ]
 
 HAWAII_PLACES = [
     ["NAME", "B01003_001E", "state", "place"],
     ["East Honolulu CDP, Hawaii", "51360", "15", "06290"],
     ["Kailua CDP (Honolulu County), Hawaii", "39640", "15", "23150"],
-    ["Urban Honolulu CDP, Hawaii", "345482", "15", "71550"]
+    ["Urban Honolulu CDP, Hawaii", "345482", "15", "71550"],
 ]
 
 
@@ -33,9 +31,7 @@ class FakeResponse:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            raise requests.HTTPError(
-                f"HTTP {self.status_code}"
-            )
+            raise requests.HTTPError(f"HTTP {self.status_code}")
 
 
 @pytest.fixture(autouse=True)
@@ -44,49 +40,34 @@ def clear_cache():
 
 
 def test_get_state_found(monkeypatch):
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(STATES)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: FakeResponse(STATES))
 
     result = get_state("alaska")
 
-    assert result == {
-        "code": "02",
-        "state": "Alaska",
-        "population": 735706
-    }
+    assert result == {"code": "02", "state": "Alaska", "population": 735706}
 
 
 def test_get_state_not_found(monkeypatch):
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(STATES)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: FakeResponse(STATES))
 
     assert get_state("Nowhere") is None
 
 
 def test_get_places_exact_match(monkeypatch):
     monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(HAWAII_PLACES)
+        "requests.get", lambda url, **kwargs: FakeResponse(HAWAII_PLACES)
     )
 
     result = get_places("15", "Kailua")
 
     assert result == [
-        {
-            "place": "Kailua CDP (Honolulu County), Hawaii",
-            "population": 39640
-        }
+        {"place": "Kailua CDP (Honolulu County), Hawaii", "population": 39640}
     ]
 
 
 def test_get_places_skips_partial_match(monkeypatch):
     monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(HAWAII_PLACES)
+        "requests.get", lambda url, **kwargs: FakeResponse(HAWAII_PLACES)
     )
 
     assert get_places("15", "Honolulu") == []
@@ -94,8 +75,7 @@ def test_get_places_skips_partial_match(monkeypatch):
 
 def test_census_http_error(monkeypatch):
     monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(status_code=500)
+        "requests.get", lambda url, **kwargs: FakeResponse(status_code=500)
     )
 
     with pytest.raises(requests.HTTPError):
@@ -103,30 +83,18 @@ def test_census_http_error(monkeypatch):
 
 
 def test_main_state_population(monkeypatch):
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(STATES)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: FakeResponse(STATES))
 
     response = client.get("/population/Alaska")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "state": "Alaska",
-        "population": 735706
-    }
+    assert response.json() == {"state": "Alaska", "population": 735706}
 
 
 def test_main_city_population(monkeypatch):
-    responses = [
-        FakeResponse(STATES),
-        FakeResponse(HAWAII_PLACES)
-    ]
+    responses = [FakeResponse(STATES), FakeResponse(HAWAII_PLACES)]
 
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: responses.pop(0)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: responses.pop(0))
 
     response = client.get("/population/Hawaii/Kailua")
 
@@ -136,10 +104,7 @@ def test_main_city_population(monkeypatch):
 
 
 def test_main_state_not_found(monkeypatch):
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(STATES)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: FakeResponse(STATES))
 
     response = client.get("/population/Nowhere")
 
@@ -151,13 +116,10 @@ def test_main_city_not_found(monkeypatch):
     responses = [
         FakeResponse(STATES),
         FakeResponse(HAWAII_PLACES),
-        FakeResponse({"features": []})
+        FakeResponse({"features": []}),
     ]
 
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: responses.pop(0)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: responses.pop(0))
 
     response = client.get("/population/Hawaii/Nowhere")
 
@@ -169,35 +131,34 @@ def test_main_city_found_through_mapbox(monkeypatch):
     responses = [
         FakeResponse(STATES),
         FakeResponse(HAWAII_PLACES),
-        FakeResponse({
-            "features": [
-                {
-                    "geometry": {"coordinates": [-155.997, 19.6419]},
-                    "properties": {
-                        "context": {"region": {"name": "Hawaii"}}
+        FakeResponse(
+            {
+                "features": [
+                    {
+                        "geometry": {"coordinates": [-155.997, 19.6419]},
+                        "properties": {"context": {"region": {"name": "Hawaii"}}},
+                    }
+                ]
+            }
+        ),
+        FakeResponse(
+            {
+                "result": {
+                    "geographies": {
+                        "Census Designated Places": [{"STATE": "15", "PLACE": "23000"}]
                     }
                 }
-            ]
-        }),
-        FakeResponse({
-            "result": {
-                "geographies": {
-                    "Census Designated Places": [
-                        {"STATE": "15", "PLACE": "23000"}
-                    ]
-                }
             }
-        }),
-        FakeResponse([
-            ["NAME", "B01003_001E", "state", "place"],
-            ["Kailua CDP (Hawaii County), Hawaii", "21818", "15", "23000"]
-        ])
+        ),
+        FakeResponse(
+            [
+                ["NAME", "B01003_001E", "state", "place"],
+                ["Kailua CDP (Hawaii County), Hawaii", "21818", "15", "23000"],
+            ]
+        ),
     ]
 
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: responses.pop(0)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: responses.pop(0))
 
     response = client.get("/population/Hawaii/Kailua-Kona")
 
@@ -205,15 +166,12 @@ def test_main_city_found_through_mapbox(monkeypatch):
     assert response.json() == {
         "state": "Hawaii",
         "places": [
-            {
-                "place": "Kailua CDP (Hawaii County), Hawaii",
-                "population": 21818
-            }
+            {"place": "Kailua CDP (Hawaii County), Hawaii", "population": 21818}
         ],
         "note": (
             "The Census has no place named Kailua-Kona. "
             "It lies within Kailua CDP (Hawaii County), Hawaii."
-        )
+        ),
     }
 
 
@@ -221,22 +179,19 @@ def test_main_mapbox_wrong_state_skipped(monkeypatch):
     responses = [
         FakeResponse(STATES),
         FakeResponse(HAWAII_PLACES),
-        FakeResponse({
-            "features": [
-                {
-                    "geometry": {"coordinates": [-118.0756, 33.8315]},
-                    "properties": {
-                        "context": {"region": {"name": "California"}}
+        FakeResponse(
+            {
+                "features": [
+                    {
+                        "geometry": {"coordinates": [-118.0756, 33.8315]},
+                        "properties": {"context": {"region": {"name": "California"}}},
                     }
-                }
-            ]
-        })
+                ]
+            }
+        ),
     ]
 
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: responses.pop(0)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: responses.pop(0))
 
     response = client.get("/population/Hawaii/Kona")
 
@@ -247,23 +202,20 @@ def test_main_geocoder_finds_no_place(monkeypatch):
     responses = [
         FakeResponse(STATES),
         FakeResponse(HAWAII_PLACES),
-        FakeResponse({
-            "features": [
-                {
-                    "geometry": {"coordinates": [-155.5, 19.5]},
-                    "properties": {
-                        "context": {"region": {"name": "Hawaii"}}
+        FakeResponse(
+            {
+                "features": [
+                    {
+                        "geometry": {"coordinates": [-155.5, 19.5]},
+                        "properties": {"context": {"region": {"name": "Hawaii"}}},
                     }
-                }
-            ]
-        }),
-        FakeResponse({"result": {"geographies": {}}})
+                ]
+            }
+        ),
+        FakeResponse({"result": {"geographies": {}}}),
     ]
 
-    monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: responses.pop(0)
-    )
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: responses.pop(0))
 
     response = client.get("/population/Hawaii/Volcano National Park")
 
@@ -273,8 +225,7 @@ def test_main_geocoder_finds_no_place(monkeypatch):
 
 def test_main_census_error_returns_502(monkeypatch):
     monkeypatch.setattr(
-        "requests.get",
-        lambda url, **kwargs: FakeResponse(status_code=500)
+        "requests.get", lambda url, **kwargs: FakeResponse(status_code=500)
     )
 
     response = client.get("/population/Alaska")
