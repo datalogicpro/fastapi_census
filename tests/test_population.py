@@ -281,3 +281,10 @@ def test_external_error_is_logged_without_key(monkeypatch, caplog):
     assert response.status_code == 502
     assert "HTTPError on /population/Alaska" in caplog.text
     assert "secret-key" not in caplog.text
+
+
+def test_health():
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
