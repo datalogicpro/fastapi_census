@@ -1,13 +1,8 @@
-import os
 from functools import lru_cache
 
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
-
-CENSUS_API_KEY = os.getenv("CENSUS_API_KEY")
-MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
+from config import settings
 
 CENSUS_URL = "https://api.census.gov/data/2024/acs/acs5"
 MAPBOX_URL = "https://api.mapbox.com/search/geocode/v6/forward"
@@ -18,7 +13,11 @@ TIMEOUT = 10
 
 @lru_cache
 def get_census_rows(geography: str, state_code: str | None = None) -> list[list[str]]:
-    params = {"get": "NAME,B01003_001E", "for": geography, "key": CENSUS_API_KEY}
+    params = {
+        "get": "NAME,B01003_001E",
+        "for": geography,
+        "key": settings.census_api_key.get_secret_value(),
+    }
 
     if state_code:
         params["in"] = f"state:{state_code}"
@@ -58,7 +57,7 @@ def get_coordinates(city: str, state: str) -> list[float] | None:
         "q": f"{city}, {state}",
         "country": "us",
         "types": "place,locality,neighborhood",
-        "access_token": MAPBOX_TOKEN,
+        "access_token": settings.mapbox_token.get_secret_value(),
     }
 
     response = requests.get(MAPBOX_URL, params=params, timeout=TIMEOUT)

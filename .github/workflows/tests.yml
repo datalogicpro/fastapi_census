@@ -9,6 +9,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      CENSUS_API_KEY: test-key
+      MAPBOX_TOKEN: test-token
+
     steps:
       - name: Check out code
         uses: actions/checkout@v7
