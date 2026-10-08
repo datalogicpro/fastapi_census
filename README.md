@@ -8,7 +8,7 @@ A FastAPI app that returns population data for US states, cities, and towns from
 * Population for cities and towns, including small ones.
 * Returns every place in the state with a matching name, since many share names.
 * Uses the latest Census American Community Survey 5-year data (2024).
-* Caches Census data in memory, so repeat lookups are fast.
+* Caches Census data in memory, so repeat lookups are fast. The cache never expires, because the 2024 survey data never changes. Moving to a newer year means changing the URL and redeploying, which clears the cache.
 
 ## Tech Stack
 
