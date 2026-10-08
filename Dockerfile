@@ -7,4 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["fastapi", "run", "main.py", "--port", "8000"]
+RUN useradd --create-home appuser
+USER appuser
+
+CMD ["sh", "-c", "fastapi run main.py --port ${PORT:-8000}"]
