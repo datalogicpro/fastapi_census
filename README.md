@@ -1,6 +1,12 @@
 # Census Population API
 
+[![Tests](https://github.com/datalogicpro/fastapi_census/actions/workflows/tests.yml/badge.svg)](https://github.com/datalogicpro/fastapi_census/actions/workflows/tests.yml)
+
 A FastAPI app that returns population data for US states, cities, and towns from the US Census Bureau.
+
+**Live demo:** https://fastapi-census.onrender.com/docs
+
+The app runs on Render's free plan, so the first request after a quiet period can take up to a minute while it wakes up.
 
 ## Features
 
