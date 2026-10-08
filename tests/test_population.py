@@ -3,7 +3,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from main import app
-from services.population import get_census_rows, get_places, get_state
+from services.population import get_places, get_state
 
 client = TestClient(app)
 
@@ -32,11 +32,6 @@ class FakeResponse:
     def raise_for_status(self):
         if self.status_code >= 400:
             raise requests.HTTPError(f"HTTP {self.status_code}")
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    get_census_rows.cache_clear()
 
 
 def test_get_state_found(monkeypatch):
