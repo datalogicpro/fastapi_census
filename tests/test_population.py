@@ -268,3 +268,16 @@ def test_census_rows_are_cached(monkeypatch):
     get_state("Hawaii")
 
     assert len(calls) == 1
+
+
+def test_external_error_is_logged_without_key(monkeypatch, caplog):
+    def fake_get(url, **kwargs):
+        raise requests.HTTPError("500 Server Error for url: ...&key=secret-key")
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    response = client.get("/population/Alaska")
+
+    assert response.status_code == 502
+    assert "HTTPError on /population/Alaska" in caplog.text
+    assert "secret-key" not in caplog.text
