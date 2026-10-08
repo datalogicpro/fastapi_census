@@ -13,6 +13,7 @@ app = FastAPI(
     title="Census Population API",
     description="US Census population data for states, cities, and towns.",
     version="0.1.0",
+    contact={"name": "datalogicpro", "url": "https://github.com/datalogicpro"},
 )
 
 
