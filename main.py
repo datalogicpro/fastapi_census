@@ -9,7 +9,11 @@ from routes.population import router as population_router
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = FastAPI(
+    title="Census Population API",
+    description="US Census population data for states, cities, and towns.",
+    version="0.1.0",
+)
 
 
 @app.exception_handler(requests.RequestException)
