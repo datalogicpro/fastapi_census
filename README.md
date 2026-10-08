@@ -14,6 +14,7 @@ A FastAPI app that returns population data for US states, cities, and towns from
 
 * **Python 3.13** and **FastAPI**
 * **Pydantic** for response models
+* **pydantic-settings** for loading and checking API keys
 * **requests** for calls to outside APIs
 * **pytest** for tests
 * **Ruff** for linting and formatting
@@ -24,15 +25,19 @@ A FastAPI app that returns population data for US states, cities, and towns from
 
 ```text
 fastapi_census/
-├── main.py                 # Creates the app and adds the routes
+├── main.py                 # Creates the app, adds the routes, handles errors
+├── config.py               # Loads and checks API keys
 ├── routes/
 │   └── population.py       # API endpoints
 ├── services/
 │   └── population.py       # Calls to the Census, Mapbox, and Census Geocoder
 ├── schemas/
 │   └── population.py       # Pydantic response models
-├── test_population.py      # Tests
+├── tests/
+│   ├── conftest.py         # Shared test setup
+│   └── test_population.py  # Tests
 ├── Dockerfile
+├── pyproject.toml          # Project, pytest, and Ruff settings
 ├── requirements.txt        # Packages needed to run
 ├── requirements-dev.txt    # Adds testing and code-check tools
 └── .env.example            # Names of the keys to set
@@ -65,7 +70,7 @@ CENSUS_API_KEY=your_census_api_key
 MAPBOX_TOKEN=your_mapbox_token
 ```
 
-Do not commit your `.env` file.
+Do not commit your `.env` file. If a key is missing, the app stops at startup with an error naming it.
 
 ## Running the App
 
@@ -83,6 +88,8 @@ docker run --rm -p 8000:8000 --env-file .env fastapi-census
 ```
 
 Interactive docs: http://localhost:8000/docs
+
+The container runs as a non-root user and listens on the `PORT` environment variable (default `8000`).
 
 ## Endpoints
 
@@ -139,9 +146,12 @@ Example: `/population/Hawaii/Kailua-Kona`
 }
 ```
 
-Returns `404` with `State not found` or `City not found` when there is no match.
+## Errors
 
-Returns `502` with `External data service error` if the Census, Mapbox, or the Census Geocoder fails or doesn't answer within 10 seconds.
+* `404` with `State not found` or `City not found` when there is no match.
+* `502` with `External data service error` if the Census, Mapbox, or the Census Geocoder fails or doesn't answer within 10 seconds.
+
+Each `502` is logged with the error type and the endpoint path. API keys are never written to the logs.
 
 ## Running Tests and Checks
 
