@@ -28,7 +28,8 @@ fastapi_census/
 ├── main.py                 # Creates the app, adds the routes, handles errors
 ├── config.py               # Loads and checks API keys
 ├── routes/
-│   └── population.py       # API endpoints
+│   ├── health.py           # Health check endpoint
+│   └── population.py       # Population endpoints
 ├── services/
 │   └── population.py       # Calls to the Census, Mapbox, and Census Geocoder
 ├── schemas/
@@ -145,6 +146,10 @@ Example: `/population/Hawaii/Kailua-Kona`
     "note": "The Census has no place named Kailua-Kona. It lies within Kailua CDP (Hawaii County), Hawaii."
 }
 ```
+
+### `GET /health`
+
+Returns `{"status": "ok"}` when the app is running. Hosting services call it to check that the app is up. It makes no outside API calls.
 
 ## Errors
 
