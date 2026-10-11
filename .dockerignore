@@ -5,5 +5,8 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
 tests/
 requirements-dev.txt
+.pre-commit-config.yaml

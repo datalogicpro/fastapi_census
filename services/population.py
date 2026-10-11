@@ -1,18 +1,34 @@
-from functools import lru_cache
+from dataclasses import dataclass
 
-import requests
+import httpx
 
 from config import settings
+from schemas.population import Place
+from services.errors import ExternalDataError
 
 CENSUS_URL = "https://api.census.gov/data/2024/acs/acs5"
 MAPBOX_URL = "https://api.mapbox.com/search/geocode/v6/forward"
 GEOCODER_URL = "https://geocoding.geo.census.gov/geocoder/geographies/coordinates"
 
-TIMEOUT = 10
+# The 2024 survey data never changes, so Census rows are kept until the app restarts
+census_cache: dict[tuple[str, str | None], list[list[str]]] = {}
 
 
-@lru_cache
-def get_census_rows(geography: str, state_code: str | None = None) -> list[list[str]]:
+@dataclass(frozen=True)
+class StateInfo:
+    code: str
+    name: str
+    population: int
+
+
+async def get_census_rows(
+    client: httpx.AsyncClient, geography: str, state_code: str | None = None
+) -> list[list[str]]:
+    key = (geography, state_code)
+
+    if (cached := census_cache.get(key)) is not None:
+        return cached
+
     params = {
         "get": "NAME,B01003_001E",
         "for": geography,
@@ -22,58 +38,116 @@ def get_census_rows(geography: str, state_code: str | None = None) -> list[list[
     if state_code:
         params["in"] = f"state:{state_code}"
 
-    response = requests.get(CENSUS_URL, params=params, timeout=TIMEOUT)
+    response = await client.get(CENSUS_URL, params=params)
     response.raise_for_status()
 
-    return response.json()[1:]
+    try:
+        data = response.json()
+
+        if not isinstance(data, list) or not data:
+            raise ValueError("expected a list of rows")
+
+        # The first row holds the column names
+        width = len(data[0])
+        rows: list[list[str]] = data[1:]
+
+        if not all(isinstance(row, list) and len(row) == width for row in rows):
+            raise ValueError("unexpected row shape")
+    except (TypeError, ValueError) as exc:
+        raise ExternalDataError("Census response") from exc
+
+    census_cache[key] = rows
+
+    return rows
 
 
-def get_state(state: str) -> dict[str, str | int] | None:
-    for name, population, code in get_census_rows("state:*"):
-        if name.lower() == state.lower():
-            return {"code": code, "state": name, "population": int(population)}
+async def get_state(client: httpx.AsyncClient, state: str) -> StateInfo | None:
+    rows = await get_census_rows(client, "state:*")
+
+    try:
+        for name, population, code in rows:
+            if name.lower() == state.strip().lower():
+                return StateInfo(code=code, name=name, population=int(population))
+    except (TypeError, ValueError) as exc:
+        raise ExternalDataError("Census state rows") from exc
 
     return None
 
 
-def get_places(state_code: str, city: str) -> list[dict[str, str | int]]:
+def short_place_name(census_name: str) -> str:
+    """'Anchorage municipality, Alaska' -> 'Anchorage'."""
+    place_name = census_name.split(",")[0].split(" (")[0]
+    words = place_name.split()
+
+    # Drop the place type the Census adds, such as "city", "town", or "CDP"
+    while words and (words[-1].islower() or words[-1] == "CDP"):
+        words.pop()
+
+    return " ".join(words)
+
+
+async def get_places(
+    client: httpx.AsyncClient, state_code: str, city: str
+) -> list[Place]:
+    rows = await get_census_rows(client, "place:*", state_code)
+
     places = []
 
-    for name, population, _, _ in get_census_rows("place:*", state_code):
-        place_name = name.split(",")[0].split(" (")[0]
-        words = place_name.split()
-
-        while words and (words[-1].islower() or words[-1] == "CDP"):
-            words.pop()
-
-        if " ".join(words).lower() == city.lower():
-            places.append({"place": name, "population": int(population)})
+    try:
+        for name, population, _, _ in rows:
+            if short_place_name(name).lower() == city.strip().lower():
+                places.append(Place(place=name, population=int(population)))
+    except (TypeError, ValueError) as exc:
+        raise ExternalDataError("Census place rows") from exc
 
     return places
 
 
-def get_coordinates(city: str, state: str) -> list[float] | None:
+async def get_place_by_code(
+    client: httpx.AsyncClient, state_code: str, place_code: str
+) -> Place | None:
+    rows = await get_census_rows(client, "place:*", state_code)
+
+    try:
+        for name, population, _, code in rows:
+            if code == place_code:
+                return Place(place=name, population=int(population))
+    except (TypeError, ValueError) as exc:
+        raise ExternalDataError("Census place rows") from exc
+
+    return None
+
+
+async def get_coordinates(
+    client: httpx.AsyncClient, city: str, state: str
+) -> tuple[float, float] | None:
     params = {
-        "q": f"{city}, {state}",
+        "q": f"{city.strip()}, {state}",
         "country": "us",
         "types": "place,locality,neighborhood",
         "access_token": settings.mapbox_token.get_secret_value(),
     }
 
-    response = requests.get(MAPBOX_URL, params=params, timeout=TIMEOUT)
+    response = await client.get(MAPBOX_URL, params=params)
     response.raise_for_status()
 
-    for feature in response.json().get("features", []):
-        region = feature["properties"]["context"].get("region", {})
+    try:
+        for feature in response.json().get("features") or []:
+            region = feature["properties"]["context"].get("region") or {}
 
-        if region.get("name") == state:
-            return feature["geometry"]["coordinates"]
+            if region.get("name") == state:
+                longitude, latitude = feature["geometry"]["coordinates"]
+                return float(longitude), float(latitude)
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise ExternalDataError("Mapbox response") from exc
 
     return None
 
 
-def get_place_code(longitude: float, latitude: float, state_code: str) -> str | None:
-    params = {
+async def get_place_code(
+    client: httpx.AsyncClient, longitude: float, latitude: float, state_code: str
+) -> str | None:
+    params: dict[str, str | float] = {
         "x": longitude,
         "y": latitude,
         "benchmark": "Public_AR_Current",
@@ -82,21 +156,17 @@ def get_place_code(longitude: float, latitude: float, state_code: str) -> str | 
         "format": "json",
     }
 
-    response = requests.get(GEOCODER_URL, params=params, timeout=TIMEOUT)
+    response = await client.get(GEOCODER_URL, params=params)
     response.raise_for_status()
 
-    geographies = response.json()["result"]["geographies"]
+    try:
+        geographies = response.json()["result"]["geographies"]
 
-    for layer in ("Incorporated Places", "Census Designated Places"):
-        for place in geographies.get(layer, []):
-            if place["STATE"] == state_code:
-                return place["PLACE"]
+        for layer in ("Incorporated Places", "Census Designated Places"):
+            for place in geographies.get(layer) or []:
+                if place["STATE"] == state_code:
+                    return str(place["PLACE"])
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise ExternalDataError("Census Geocoder response") from exc
 
     return None
-
-
-def get_place_by_code(state_code: str, place_code: str) -> dict[str, str | int]:
-    rows = get_census_rows(f"place:{place_code}", state_code)
-    name, population, _, _ = rows[0]
-
-    return {"place": name, "population": int(population)}
