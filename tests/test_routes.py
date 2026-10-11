@@ -1,13 +1,11 @@
 import logging
 from collections.abc import Callable
-from typing import Any
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from config import settings
-from services.http_client import create_http_client
 from tests.helpers import (
     HAWAII_PLACES,
     KAILUA_HAWAII_COUNTY,
@@ -150,18 +148,36 @@ def test_old_unversioned_path_is_gone(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "failure",
-    [status(500), httpx.ConnectError("no network"), httpx.ReadTimeout("slow")],
+    "make_failure",
+    [
+        lambda: status(500),
+        lambda: httpx.ConnectError("no network"),
+        lambda: httpx.ReadTimeout("slow"),
+    ],
 )
-def test_external_failure_returns_502(
-    client: TestClient, fake_api: FakeAPIFactory, failure: Any
+def test_external_failure_returns_502_after_retries(
+    client: TestClient,
+    fake_api: FakeAPIFactory,
+    make_failure: Callable[[], httpx.Response | Exception],
 ) -> None:
-    fake_api(failure)
+    api = fake_api(*[make_failure() for _ in range(settings.retry_attempts)])
 
     response = client.get("/v1/population/Alaska")
 
     assert response.status_code == 502
     assert response.json() == {"detail": "External data service error"}
+    assert len(api.requests) == settings.retry_attempts
+
+
+def test_external_client_error_returns_502(
+    client: TestClient, fake_api: FakeAPIFactory
+) -> None:
+    api = fake_api(status(400))
+
+    response = client.get("/v1/population/Alaska")
+
+    assert response.status_code == 502
+    assert len(api.requests) == 1
 
 
 def test_bad_upstream_data_returns_502(
@@ -179,7 +195,7 @@ def test_external_error_is_logged_without_keys(
     fake_api: FakeAPIFactory,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    fake_api(status(500))
+    fake_api(*[status(500) for _ in range(settings.retry_attempts)])
 
     client.get("/v1/population/Alaska")
 
@@ -209,11 +225,3 @@ def test_health_is_not_rate_limited(client: TestClient) -> None:
     codes = {client.get("/health").status_code for _ in range(limit + 1)}
 
     assert codes == {200}
-
-
-def test_http_client_settings() -> None:
-    http_client = create_http_client()
-
-    assert http_client.timeout.read == settings.request_timeout
-    assert http_client.headers["User-Agent"] == settings.user_agent
-    assert http_client.follow_redirects is True

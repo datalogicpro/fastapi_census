@@ -54,8 +54,8 @@ async def test_census_rows_are_cached() -> None:
     assert len(api.requests) == 1
 
 
-async def test_census_http_error() -> None:
-    api = FakeAPI(status(500))
+async def test_census_client_error() -> None:
+    api = FakeAPI(status(400))
 
     with pytest.raises(httpx.HTTPStatusError):
         await get_state(api.client, "Alaska")

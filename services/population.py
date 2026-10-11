@@ -5,6 +5,7 @@ import httpx
 from config import settings
 from schemas.population import Place
 from services.errors import ExternalDataError
+from services.http_client import fetch
 
 CENSUS_URL = "https://api.census.gov/data/2024/acs/acs5"
 MAPBOX_URL = "https://api.mapbox.com/search/geocode/v6/forward"
@@ -38,8 +39,7 @@ async def get_census_rows(
     if state_code:
         params["in"] = f"state:{state_code}"
 
-    response = await client.get(CENSUS_URL, params=params)
-    response.raise_for_status()
+    response = await fetch(client, CENSUS_URL, params)
 
     try:
         data = response.json()
@@ -128,8 +128,7 @@ async def get_coordinates(
         "access_token": settings.mapbox_token.get_secret_value(),
     }
 
-    response = await client.get(MAPBOX_URL, params=params)
-    response.raise_for_status()
+    response = await fetch(client, MAPBOX_URL, params)
 
     try:
         for feature in response.json().get("features") or []:
@@ -156,8 +155,7 @@ async def get_place_code(
         "format": "json",
     }
 
-    response = await client.get(GEOCODER_URL, params=params)
-    response.raise_for_status()
+    response = await fetch(client, GEOCODER_URL, params)
 
     try:
         geographies = response.json()["result"]["geographies"]

@@ -7,7 +7,12 @@ class Settings(BaseSettings):
 
     census_api_key: SecretStr
     mapbox_token: SecretStr
+    sentry_dsn: SecretStr | None = None
+    environment: str = "development"
+    log_level: str = "INFO"
     request_timeout: float = 10
+    retry_attempts: int = 3
+    retry_backoff: float = 0.5
     user_agent: str = "fastapi-census (github.com/datalogicpro/fastapi_census)"
     rate_limit: str = "60/minute"
 
