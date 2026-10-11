@@ -16,7 +16,9 @@ The app runs on Render's free plan, so the first request after a quiet period ca
 * Finds names the Census doesn't use, such as neighborhoods and hyphenated town names, and returns the Census place that contains them.
 * Uses the latest Census American Community Survey 5-year data (2024).
 * Caches Census data in memory, so repeat lookups are fast.
-* Async calls to outside APIs through one shared HTTP client.
+* Async calls to outside APIs through one shared HTTP client, with retries and exponential backoff.
+* JSON logs with a request ID on every line.
+* Error tracking with Sentry in production.
 * Rate limit of 60 requests per minute per client.
 * Versioned routes under `/v1`.
 
@@ -24,9 +26,12 @@ The app runs on Render's free plan, so the first request after a quiet period ca
 
 * **Python 3.13** and **FastAPI**
 * **Pydantic** for response models
-* **pydantic-settings** for loading and checking API keys
+* **pydantic-settings** for loading and checking settings and API keys
 * **httpx** for async calls to outside APIs
+* **tenacity** for retries with exponential backoff
 * **slowapi** for rate limiting
+* **asgi-correlation-id** and **python-json-logger** for JSON logs with request IDs
+* **Sentry** for error tracking
 * **pytest** and **pytest-cov** for tests and coverage
 * **Ruff** for linting and formatting
 * **mypy** for type checking
@@ -39,15 +44,17 @@ The app runs on Render's free plan, so the first request after a quiet period ca
 
 ```text
 fastapi_census/
-├── main.py                   # Creates the app, adds the routes, handles errors
+├── main.py                   # Creates the app, adds middleware and routes, handles errors
 ├── config.py                 # Loads and checks settings and API keys
+├── logging_config.py         # JSON logging with request IDs
+├── monitoring.py             # Sentry error tracking
 ├── rate_limit.py             # Rate limiter shared by the routes
 ├── routes/
 │   ├── health.py             # Health check endpoint
 │   └── population.py         # Population endpoints
 ├── services/
 │   ├── errors.py             # Error for bad data from outside services
-│   ├── http_client.py        # Shared async HTTP client
+│   ├── http_client.py        # Shared async HTTP client and retries
 │   └── population.py         # Calls to the Census, Mapbox, and Census Geocoder
 ├── schemas/
 │   └── population.py         # Pydantic response models
@@ -56,6 +63,9 @@ fastapi_census/
 │   ├── helpers.py            # Fake API responses and sample data
 │   ├── test_census.py        # Census data tests
 │   ├── test_geocoding.py     # Mapbox and Census Geocoder tests
+│   ├── test_http_client.py   # HTTP client and retry tests
+│   ├── test_logging.py       # Request ID and JSON log tests
+│   ├── test_monitoring.py    # Sentry setup tests
 │   └── test_routes.py        # Endpoint, error, and rate limit tests
 ├── .github/
 │   ├── workflows/tests.yml   # GitHub Actions checks
@@ -66,6 +76,7 @@ fastapi_census/
 ├── requirements.txt          # Packages needed to run
 ├── requirements-dev.txt      # Adds testing and code-check tools
 ├── .env.example              # Names of the keys to set
+├── CHANGELOG.md
 └── LICENSE
 ```
 
@@ -74,6 +85,7 @@ fastapi_census/
 * Python 3.13 or newer
 * A free Census API key: https://api.census.gov/data/key_signup.html
 * A Mapbox access token: https://account.mapbox.com/
+* A Sentry project (optional, for production): https://sentry.io/
 
 ## Installation
 
@@ -98,6 +110,15 @@ MAPBOX_TOKEN=your_mapbox_token
 ```
 
 Do not commit your `.env` file. If a key is missing, the app stops at startup with an error naming it.
+
+These are optional and set only in production (on Render):
+
+```text
+SENTRY_DSN=your_sentry_dsn
+ENVIRONMENT=production
+```
+
+Sentry stays off when `SENTRY_DSN` is not set, so local runs and tests never send errors to it.
 
 ## Running the App
 
@@ -184,7 +205,19 @@ Returns `{"status": "ok"}` when the app is running. Hosting services call it to 
 * `429` with `Too many requests, try again later` when a client sends more than 60 requests in a minute.
 * `502` with `External data service error` if the Census, Mapbox, or the Census Geocoder fails, doesn't answer within 10 seconds, or sends data in an unexpected shape.
 
-Each `502` is logged with the error type and the endpoint path. API keys are never written to the logs.
+Timeouts, connection errors, and the status codes `429`, `500`, `502`, `503`, and `504` from an outside service are tried up to 3 times, with a growing wait between tries. Other errors, such as a bad API key, are not retried.
+
+## Logging
+
+Every log line is JSON, with a timestamp, level, logger name, message, and request ID:
+
+```json
+{"level": "INFO", "logger": "main", "message": "Request handled", "request_id": "3f2b9c...", "method": "GET", "path": "/v1/population/Alaska", "status": 200, "duration_ms": 41.7, "timestamp": "2026-10-11T17:20:05.123+00:00"}
+```
+
+Each response has an `X-Request-ID` header with the same ID. A client can send its own `X-Request-ID` (a UUID4), and the API uses it.
+
+API keys are never written to the logs or sent to Sentry.
 
 ## Running Tests and Checks
 
@@ -204,7 +237,9 @@ GitHub Actions runs all four on every push. pre-commit runs Ruff and mypy before
 * **Census place names include a type.** The Census lists places such as `Anchorage municipality` or `Kailua CDP`. The API drops the type before matching, so users can search by the plain name.
 * **Many places share a name.** Hawaii has two places named Kailua. The API returns every match instead of guessing.
 * **Common names the Census doesn't use.** Names like `Kailua-Kona` are not Census places. The API finds the name's coordinates with Mapbox, then uses the Census Geocoder to find the Census place at those coordinates.
-* **API keys in logs.** httpx logs every request URL, and the Census and Mapbox URLs contain API keys. The app turns off those log lines and logs only the error type and endpoint path.
+* **Short outages at outside services.** A single failed call used to mean a failed request. Retries with exponential backoff and random jitter recover from brief outages without flooding the service.
+* **API keys in logs and error reports.** The Census and Mapbox URLs contain API keys, and httpx error messages include those URLs. The app logs only the error type, turns off httpx's request logs, and keeps Sentry from recording request URLs or local variables.
+* **Tracing one request through the logs.** Each request gets an ID that appears on every log line it creates and in the response header.
 * **Bad data from outside services.** A changed or broken response from an outside API returns a clean `502` instead of crashing the app.
 * **Rate limiting behind a proxy.** Render sends requests through a proxy. The Docker image trusts the forwarded client address, so each client is counted separately.
 
@@ -213,7 +248,7 @@ GitHub Actions runs all four on every push. pre-commit runs Ruff and mypy before
 * Population numbers are ACS 5-year estimates, not exact counts.
 * When a name is found through Mapbox, the population is for the whole Census place that contains it, not just the named area.
 * Areas outside any Census place (such as rural land) return `404`.
-* The cache and the rate limit counts are kept in memory, so they reset when the app restarts.
+* The cache and the rate limit counts are kept in memory, so they reset when the app restarts and are not shared between servers.
 * Moving to a newer survey year means changing the Census URL and redeploying.
 
 ## Data Sources

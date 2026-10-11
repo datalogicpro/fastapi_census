@@ -1,22 +1,28 @@
 import logging
-from collections.abc import AsyncIterator
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, Request
+from asgi_correlation_id import CorrelationIdMiddleware
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
+from logging_config import setup_logging
+from monitoring import setup_sentry
 from rate_limit import limiter
 from routes.health import router as health_router
 from routes.population import router as population_router
 from services.errors import ExternalDataError
 from services.http_client import create_http_client
 
-logger = logging.getLogger(__name__)
+VERSION = "1.0.0"
 
-# httpx logs every request URL at INFO level, and those URLs contain API keys
-logging.getLogger("httpx").setLevel(logging.WARNING)
+setup_logging()
+setup_sentry(VERSION)
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -30,13 +36,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Census Population API",
     description="US Census population data for states, cities, and towns.",
-    version="1.0.0",
+    version=VERSION,
     contact={"name": "datalogicpro", "url": "https://github.com/datalogicpro"},
     license_info={"name": "MIT", "identifier": "MIT"},
     lifespan=lifespan,
 )
 
 app.state.limiter = limiter
+
+
+@app.middleware("http")
+async def log_requests(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    start = time.perf_counter()
+    response = await call_next(request)
+    logger.info(
+        "Request handled",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "duration_ms": round((time.perf_counter() - start) * 1000, 1),
+        },
+    )
+    return response
+
+
+# Added last so it runs first, giving every log line its request ID
+app.add_middleware(CorrelationIdMiddleware)
 
 
 @app.exception_handler(httpx.HTTPError)

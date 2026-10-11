@@ -38,8 +38,8 @@ async def test_coordinates_not_found() -> None:
     assert await get_coordinates(api.client, "Nowhere", "Hawaii") is None
 
 
-async def test_coordinates_http_error() -> None:
-    api = FakeAPI(status(500))
+async def test_coordinates_client_error() -> None:
+    api = FakeAPI(status(401))
 
     with pytest.raises(httpx.HTTPStatusError):
         await get_coordinates(api.client, "Kailua-Kona", "Hawaii")
