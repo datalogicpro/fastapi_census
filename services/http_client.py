@@ -12,6 +12,7 @@ from tenacity import (
 )
 
 from config import settings
+from services.errors import ExternalDataError
 
 logger = logging.getLogger(__name__)
 
@@ -68,3 +69,26 @@ async def fetch(
             response.raise_for_status()
 
     return response
+
+
+def upstream_details(error: Exception) -> dict[str, str | int]:
+    """Which outside service failed, and its status code, for the logs.
+
+    Only the host name is used, never the full URL, because URLs contain API keys.
+    """
+    if isinstance(error, ExternalDataError):
+        return {"upstream_service": str(error)}
+
+    details: dict[str, str | int] = {}
+
+    if isinstance(error, httpx.HTTPStatusError):
+        details["upstream_status"] = error.response.status_code
+
+    if isinstance(error, httpx.HTTPError):
+        try:
+            details["upstream_service"] = error.request.url.host
+        except RuntimeError:
+            # httpx raises this when the error was created without a request
+            pass
+
+    return details

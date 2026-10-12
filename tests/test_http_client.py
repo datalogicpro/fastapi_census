@@ -4,7 +4,8 @@ import httpx
 import pytest
 
 from config import settings
-from services.http_client import create_http_client, fetch
+from services.errors import ExternalDataError
+from services.http_client import create_http_client, fetch, upstream_details
 from tests.helpers import FakeAPI, ok, status
 
 pytestmark = pytest.mark.anyio
@@ -80,3 +81,24 @@ async def test_retries_are_logged_without_urls(
     assert record.__dict__["attempt"] == 1
     assert record.__dict__["error"] == "HTTPStatusError"
     assert "secret-key" not in caplog.text
+
+
+def test_upstream_details_status_error() -> None:
+    request = httpx.Request("GET", "https://api.mapbox.com/search?access_token=secret")
+    response = httpx.Response(401, request=request)
+    error = httpx.HTTPStatusError("unauthorized", request=request, response=response)
+
+    details = upstream_details(error)
+
+    assert details == {"upstream_service": "api.mapbox.com", "upstream_status": 401}
+    assert "secret" not in str(details)
+
+
+def test_upstream_details_without_request() -> None:
+    assert upstream_details(httpx.ConnectError("no network")) == {}
+
+
+def test_upstream_details_bad_data() -> None:
+    error = ExternalDataError("Mapbox response")
+
+    assert upstream_details(error) == {"upstream_service": "Mapbox response"}
