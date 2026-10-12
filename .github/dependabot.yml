@@ -14,3 +14,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Stay on Python 3.13 until a planned upgrade of the whole project
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
