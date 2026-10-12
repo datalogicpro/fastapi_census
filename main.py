@@ -17,7 +17,7 @@ from rate_limit import limiter
 from routes.health import router as health_router
 from routes.population import router as population_router
 from services.errors import ExternalDataError
-from services.http_client import create_http_client
+from services.http_client import create_http_client, upstream_details
 
 # The version lives only in pyproject.toml
 PYPROJECT = Path(__file__).parent / "pyproject.toml"
@@ -77,7 +77,10 @@ app.add_middleware(CorrelationIdMiddleware)
 @app.exception_handler(ExternalDataError)
 def handle_external_error(request: Request, exc: Exception) -> JSONResponse:
     logger.error(
-        "External service failed: %s on %s", type(exc).__name__, request.url.path
+        "External service failed: %s on %s",
+        type(exc).__name__,
+        request.url.path,
+        extra=upstream_details(exc),
     )
     return JSONResponse(
         status_code=502, content={"detail": "External data service error"}
