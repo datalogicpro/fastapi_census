@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.14-slim
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /uvx /bin/
 ENV PYTHONUNBUFFERED=1
 ENV FORWARDED_ALLOW_IPS="*"
