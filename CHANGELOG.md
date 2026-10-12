@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Retries with exponential backoff for temporary failures from the Census, Mapbox, and the Census Geocoder.
 - JSON logs with a request ID on every line, and an `X-Request-ID` header on every response.
 - A log line for every request, with method, path, status, and duration.
+- Error logs for outside services include the service's host name and status code, never the full URL.
 - Sentry error tracking in production, set up so API keys are never sent.
 - Rate limit of 60 requests per minute per client. `/health` is not limited.
 - `422` errors for blank or too-long state and city names.
@@ -37,4 +38,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - GitHub Actions runs with read-only access.
 - The Docker image leaves out git history, tests, and CI files.
 - Tests use `httpx2` for FastAPI's test client, which removes a deprecation warning.
-- The README Tech Stack is grouped by purpose, and each challenge lists its problem and its
+- The README Tech Stack is grouped by purpose, and each challenge lists its problem and its solution.
+
+### Removed
+
+- The old routes at `/population/...`.
+- `requirements.txt` and `requirements-dev.txt`, replaced by `pyproject.toml` and `uv.lock`.
