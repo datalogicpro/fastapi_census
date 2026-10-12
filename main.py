@@ -1,7 +1,9 @@
 import logging
 import time
+import tomllib
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from asgi_correlation_id import CorrelationIdMiddleware
@@ -17,7 +19,11 @@ from routes.population import router as population_router
 from services.errors import ExternalDataError
 from services.http_client import create_http_client
 
-VERSION = "1.0.0"
+# The version lives only in pyproject.toml
+PYPROJECT = Path(__file__).parent / "pyproject.toml"
+VERSION: str = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"][
+    "version"
+]
 
 setup_logging()
 setup_sentry(VERSION)

@@ -1,8 +1,0 @@
-asgi-correlation-id==5.0.1
-fastapi[standard]==0.142.2
-httpx==0.28.1
-pydantic-settings==2.15.0
-python-json-logger==4.2.0
-sentry-sdk[fastapi]==2.71.0
-slowapi==0.1.10
-tenacity==9.2.1

@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,22 +20,39 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v9
         with:
-          python-version: "3.13"
+          version: "0.13.0"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
 
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: uv sync --locked
 
       - name: Check code with Ruff
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Check formatting with Ruff
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
       - name: Type check with mypy
-        run: mypy .
+        run: uv run mypy .
+
+      - name: Audit dependencies for vulnerabilities
+        run: uv run pip-audit
 
       - name: Run tests with coverage
-        run: python -m pytest
+        run: uv run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Build Docker image
+        run: docker build -t fastapi-census .
