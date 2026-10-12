@@ -1,9 +1,13 @@
 .env
 .venv/
-.git/
-.github/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+.git/
+.github/
 tests/
-requirements-dev.txt
+.pre-commit-config.yaml
+.dockerignore
+Dockerfile
