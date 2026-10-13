@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-census"
-version = "1.0.0"
+version = "1.0.1"
 description = "US Census population data for states, cities, and towns."
 readme = "README.md"
 license = "MIT"
