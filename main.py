@@ -30,6 +30,9 @@ setup_sentry(VERSION)
 
 logger = logging.getLogger(__name__)
 
+# Render calls /health every few seconds, so those requests aren't logged
+UNLOGGED_PATHS = {"/health"}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -57,15 +60,18 @@ async def log_requests(
 ) -> Response:
     start = time.perf_counter()
     response = await call_next(request)
-    logger.info(
-        "Request handled",
-        extra={
-            "method": request.method,
-            "path": request.url.path,
-            "status": response.status_code,
-            "duration_ms": round((time.perf_counter() - start) * 1000, 1),
-        },
-    )
+
+    if request.url.path not in UNLOGGED_PATHS:
+        logger.info(
+            "Request handled",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": round((time.perf_counter() - start) * 1000, 1),
+            },
+        )
+
     return response
 
 

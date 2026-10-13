@@ -11,6 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - pre-commit runs Ruff from the project's `.venv`, so it uses the same version as `uv.lock`.
 - Dependabot skips Python version updates for the Docker image. The project stays on Python 3.13 until a planned upgrade.
 - Updated FastAPI to 0.143.0, Ruff to 0.17.0, and setup-uv to 10.3.0.
+- The Docker image starts uvicorn directly, with its plain-text request log turned off, so each request is logged once as JSON.
+- Requests to `/health` are no longer logged.
 
 ## [1.0.0] - 2026-10-12
 
