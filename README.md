@@ -252,6 +252,8 @@ Each response has an `X-Request-ID` header with the same ID. A client can send i
 
 API keys are never written to the logs or sent to Sentry.
 
+Requests to `/health` aren't logged. Render calls it every 5 seconds, and those lines would bury real requests.
+
 ## Running Tests and Checks
 
 ```powershell
