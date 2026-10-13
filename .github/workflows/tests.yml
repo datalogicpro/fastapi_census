@@ -56,3 +56,15 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t fastapi-census .
+
+  deploy:
+    # Only after a merge to main, and only when both checks pass
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, docker]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error --output /dev/null --request POST "$RENDER_DEPLOY_HOOK_URL"

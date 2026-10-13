@@ -1,3 +1,4 @@
+
 # Census Population API
 
 [![Tests](https://github.com/datalogicpro/fastapi_census/actions/workflows/tests.yml/badge.svg)](https://github.com/datalogicpro/fastapi_census/actions/workflows/tests.yml)
@@ -85,7 +86,7 @@ fastapi_census/
 │   ├── test_monitoring.py    # Sentry setup tests
 │   └── test_routes.py        # Endpoint, error, and rate limit tests
 ├── .github/
-│   ├── workflows/tests.yml   # GitHub Actions checks and Docker build
+│   ├── workflows/tests.yml   # GitHub Actions checks, Docker build, and deploy to Render
 │   └── dependabot.yml        # Dependency updates
 ├── .pre-commit-config.yaml   # Checks run before every commit
 ├── .dockerignore             # Files kept out of the Docker image
@@ -168,7 +169,7 @@ Render settings:
 
 * **Runtime:** Docker
 * **Health check path:** `/health`
-* **Auto-Deploy:** After CI Checks Pass, so Render deploys `main` only after the test and Docker build checks pass
+* **Auto-Deploy:** Off. GitHub Actions deploys instead: after the test and Docker build checks pass on `main`, its deploy job calls Render's deploy hook, stored as the `RENDER_DEPLOY_HOOK_URL` repository secret.
 * **Environment variables:** `CENSUS_API_KEY`, `MAPBOX_TOKEN`, `SENTRY_DSN`, and `ENVIRONMENT=production`
 
 Render sets the `PORT` variable, and the container listens on it.
@@ -267,7 +268,7 @@ uv run pip-audit
 
 Tests use fake API responses, so they need no internet or real keys. The test run fails if coverage drops below 90% or if any warning appears.
 
-GitHub Actions runs all five and builds the Docker image on every push to `main` and every pull request.
+GitHub Actions runs all five and builds the Docker image on every push to `main` and every pull request. After a merge to `main`, it also deploys to Render once both pass.
 
 pre-commit runs these before every commit:
 
