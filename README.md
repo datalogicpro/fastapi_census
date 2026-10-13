@@ -168,6 +168,7 @@ Render settings:
 
 * **Runtime:** Docker
 * **Health check path:** `/health`
+* **Auto-Deploy:** After CI Checks Pass, so Render deploys `main` only after the test and Docker build checks pass
 * **Environment variables:** `CENSUS_API_KEY`, `MAPBOX_TOKEN`, `SENTRY_DSN`, and `ENVIRONMENT=production`
 
 Render sets the `PORT` variable, and the container listens on it.
