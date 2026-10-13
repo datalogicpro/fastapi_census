@@ -4,6 +4,14 @@ All notable changes to this project are listed here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- pre-commit runs Ruff from the project's `.venv`, so it uses the same version as `uv.lock`.
+- Dependabot skips Python version updates for the Docker image. The project stays on Python 3.13 until a planned upgrade.
+- Updated FastAPI to 0.143.0, Ruff to 0.17.0, and setup-uv to 10.3.0.
+
 ## [1.0.0] - 2026-10-12
 
 ### Added
