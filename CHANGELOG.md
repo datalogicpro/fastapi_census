@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Updated FastAPI to 0.143.0, Ruff to 0.17.0, and setup-uv to 10.3.0.
 - The Docker image starts uvicorn directly, with its plain-text request log turned off, so each request is logged once as JSON.
 - Requests to `/health` are no longer logged.
+- GitHub Actions deploys to Render through a deploy hook after the test and Docker build checks pass on `main`. Render's own Auto-Deploy is off.
 
 ## [1.0.0] - 2026-10-12
 
