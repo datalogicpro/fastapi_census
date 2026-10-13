@@ -7,6 +7,8 @@ from asgi_correlation_id import correlation_id
 from fastapi.testclient import TestClient
 from pythonjsonlogger.json import JsonFormatter
 
+TOO_LONG_STATE = "/v1/population/" + "x" * 51
+
 
 def test_response_has_request_id(client: TestClient) -> None:
     response = client.get("/health")
@@ -25,13 +27,21 @@ def test_request_id_is_passed_through(client: TestClient) -> None:
 def test_requests_are_logged(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
-    client.get("/health")
+    client.get(TOO_LONG_STATE)
 
     record = next(r for r in caplog.records if r.getMessage() == "Request handled")
     assert record.__dict__["method"] == "GET"
-    assert record.__dict__["path"] == "/health"
-    assert record.__dict__["status"] == 200
+    assert record.__dict__["path"] == TOO_LONG_STATE
+    assert record.__dict__["status"] == 422
     assert record.__dict__["duration_ms"] >= 0
+
+
+def test_health_checks_are_not_logged(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    client.get("/health")
+
+    assert not any(r.getMessage() == "Request handled" for r in caplog.records)
 
 
 def test_log_lines_are_json_with_request_id() -> None:
